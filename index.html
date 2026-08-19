@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#00a884">
+  <meta name="description" content="Painel de atendimento WhatsApp conectado à Evolution API v2">
+  <title>Atende • WhatsApp</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            wa: { 50:'#f0fdf4',100:'#dcfce7',500:'#00a884',600:'#008f72',700:'#007b63' }
+          },
+          boxShadow: {
+            panel: '0 20px 60px rgba(0,0,0,.14)'
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body class="min-h-screen bg-[#d1d7db] text-[#111b21]">
+  <div id="app" class="min-h-screen"></div>
+  <div id="toast-root" class="fixed right-4 bottom-4 z-[100] space-y-2"></div>
+  <div id="modal-root"></div>
+  <script src="/config.js"></script>
+  <script src="/assets/app.js"></script>
+</body>
+</html>
