@@ -1,33 +1,458 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#00a884">
-  <meta name="description" content="Painel de atendimento WhatsApp conectado à Evolution API v2">
-  <title>Atende • WhatsApp</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            wa: { 50:'#f0fdf4',100:'#dcfce7',500:'#00a884',600:'#008f72',700:'#007b63' }
-          },
-          boxShadow: {
-            panel: '0 20px 60px rgba(0,0,0,.14)'
-          }
-        }
-      }
-    }
-  </script>
-  <link rel="stylesheet" href="/assets/app.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Web - Evolution API</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #d1d7db; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #bfbabc; border-radius: 10px; }
+        .bg-wpp-chat { background-color: #efeae2; background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-repeat: repeat; opacity: 0.9; }
+        .bubble-me { background-color: #d9fdd3; }
+        .bubble-other { background-color: #ffffff; }
+    </style>
 </head>
-<body class="min-h-screen bg-[#d1d7db] text-[#111b21]">
-  <div id="app" class="min-h-screen"></div>
-  <div id="toast-root" class="fixed right-4 bottom-4 z-[100] space-y-2"></div>
-  <div id="modal-root"></div>
-  <script src="/config.js"></script>
-  <script src="/assets/app.js"></script>
+<body class="h-screen w-full flex items-center justify-center p-0 md:p-4">
+
+    <div class="flex w-full h-full max-w-[1600px] bg-white md:shadow-xl md:rounded-lg overflow-hidden">
+        
+        <!-- COLUNA ESQUERDA -->
+        <div class="w-full md:w-[30%] lg:w-[35%] flex flex-col border-r border-gray-200 bg-white">
+            
+            <div class="h-16 bg-[#f0f2f5] flex items-center justify-between px-4 py-2 border-b border-gray-200 shadow-sm z-10">
+                <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-xl">🦊</div>
+                <div class="flex gap-4 text-gray-500 text-xl cursor-pointer">
+                    <button onclick="carregarContatos()" title="Atualizar Conversas">🔄</button>
+                </div>
+            </div>
+
+            <!-- Abas Arquivados e Ativos -->
+            <div class="flex bg-white border-b border-gray-200">
+                <button id="tab-ativos" onclick="alternarAba(false)" class="flex-1 py-3 text-sm font-semibold text-emerald-600 border-b-2 border-emerald-600 transition">Ativos</button>
+                <button id="tab-arquivados" onclick="alternarAba(true)" class="flex-1 py-3 text-sm font-semibold text-gray-500 border-b-2 border-transparent hover:text-gray-700 transition">Arquivados 📦</button>
+            </div>
+
+            <!-- Barra de Pesquisa -->
+            <div class="p-2 bg-white border-b border-gray-200">
+                <div class="bg-[#f0f2f5] flex items-center rounded-lg px-3 py-1.5">
+                    <span class="text-gray-500 mr-2">🔍</span>
+                    <input type="text" id="search-input" oninput="filtrarContatos()" placeholder="Pesquisar por nome ou número" class="bg-transparent w-full focus:outline-none text-sm text-gray-700">
+                </div>
+            </div>
+            
+            <div id="contacts-area" class="flex-1 overflow-y-auto bg-white">
+                <div class="flex flex-col items-center justify-center h-full text-gray-400">
+                    <p class="mt-4 text-sm animate-pulse">Sincronizando conversas...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- COLUNA DIREITA -->
+        <div class="hidden md:flex flex-col w-[70%] lg:w-[65%] relative bg-gray-100" id="right-panel">
+            
+            <div id="welcome-screen" class="absolute inset-0 bg-[#f0f2f5] flex flex-col items-center justify-center z-20 border-l border-gray-200">
+                <img src="https://cdn-icons-png.flaticon.com/512/3670/3670110.png" class="w-64 opacity-50 mb-6 grayscale">
+                <h2 class="text-3xl font-light text-gray-600 mb-2">WhatsApp for Evolution API</h2>
+                <p class="text-gray-500 text-sm">Selecione um chat à esquerda para visualizar as mensagens.</p>
+            </div>
+
+            <div class="h-16 bg-[#f0f2f5] flex items-center justify-between px-4 border-b border-gray-200 z-10 shadow-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-xl overflow-hidden" id="chat-header-img">👤</div>
+                    <div class="flex flex-col">
+                        <span id="chat-header-name" class="font-semibold text-gray-800">Carregando...</span>
+                        <span id="chat-header-number" class="text-xs text-gray-500"></span>
+                    </div>
+                </div>
+                <!-- Símbolo de "Ao Vivo" para mostrar que está atualizando sozinho -->
+                <div class="flex items-center gap-2 text-xs text-emerald-600 font-bold bg-emerald-100 px-3 py-1 rounded-full border border-emerald-200 shadow-sm">
+                    <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                    Em tempo real
+                </div>
+            </div>
+
+            <div id="chat-area" class="flex-1 overflow-y-auto p-4 space-y-2 bg-wpp-chat relative shadow-inner">
+            </div>
+
+            <form id="chat-form" class="h-[62px] bg-[#f0f2f5] px-4 flex gap-3 items-center border-t border-gray-200 z-10">
+                <label class="cursor-pointer text-gray-500 text-2xl hover:text-gray-700 p-2">
+                    📎
+                    <input type="file" id="file-input" class="hidden">
+                </label>
+                
+                <span id="file-name" class="text-xs truncate w-24 px-3 bg-[#d9fdd3] rounded-md py-2 text-gray-700 hidden shadow-sm border border-green-200"></span>
+
+                <input type="text" id="text-input" placeholder="Digite uma mensagem" class="flex-1 p-2.5 px-4 bg-white border-none rounded-lg focus:outline-none text-gray-700 shadow-sm disabled:opacity-50">
+
+                <button type="submit" id="send-btn" class="text-gray-500 text-xl hover:text-gray-700 p-2 disabled:opacity-50">
+                    ➤
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const APP_CONFIG = window.__APP_CONFIG__ || {};
+        const API_URL = (APP_CONFIG.baseUrl || '').replace(/\/+$/, '');
+        const API_KEY = APP_CONFIG.apiKey || '';
+        const INSTANCE = APP_CONFIG.instance || '';
+ 
+        
+        let CURRENT_JID = ''; 
+        let CURRENT_NAME = '';
+        let CHATS_DATA = []; 
+        let ABA_ARQUIVADOS = false;
+        
+        // VARIÁVEIS PARA O TEMPO REAL (POLLING)
+        let chatInterval = null;
+        let quantidadeMensagensAnterior = 0;
+        const POLLING_MS = Number(APP_CONFIG.pollingMs || 3000);
+
+        function verificarConfiguracao() {
+            if (!API_URL || !API_KEY || !INSTANCE) {
+                const contactsArea = document.getElementById('contacts-area');
+                contactsArea.innerHTML = '<div class="p-6 text-center text-sm text-gray-500">Configure a Evolution API no <b>config.js</b> deste deploy.</div>';
+                return false;
+            }
+            return true;
+        }
+
+        function extrairTexto(msg) {
+            if (!msg) return "";
+            let m = msg.message || {};
+            if (m.ephemeralMessage && m.ephemeralMessage.message) m = m.ephemeralMessage.message;
+            if (m.viewOnceMessage && m.viewOnceMessage.message) m = m.viewOnceMessage.message;
+            
+            return m.conversation || 
+                   m.extendedTextMessage?.text || 
+                   m.imageMessage?.caption || 
+                   m.videoMessage?.caption || 
+                   m.documentMessage?.caption || 
+                   "";
+        }
+
+        function extrairMidia(msg) {
+            if (!msg) return null;
+            let m = msg.message || {};
+            if (m.ephemeralMessage && m.ephemeralMessage.message) m = m.ephemeralMessage.message;
+            if (m.viewOnceMessage && m.viewOnceMessage.message) m = m.viewOnceMessage.message;
+            if (m.viewOnceMessageV2 && m.viewOnceMessageV2.message) m = m.viewOnceMessageV2.message;
+            if (m.viewOnceMessageV2Extension && m.viewOnceMessageV2Extension.message) m = m.viewOnceMessageV2Extension.message;
+            if (m.documentWithCaptionMessage && m.documentWithCaptionMessage.message) m = m.documentWithCaptionMessage.message;
+
+            const doc = m.documentMessage || m.documentWithCaptionMessage?.message?.documentMessage;
+            if (doc) return { tipo: 'documento', dados: doc, icone: '📄' };
+            if (m.imageMessage) return { tipo: 'imagem', dados: m.imageMessage, icone: '🖼️' };
+            if (m.videoMessage) return { tipo: 'video', dados: m.videoMessage, icone: '🎥' };
+            if (m.audioMessage) return { tipo: 'audio', dados: m.audioMessage, icone: '🎵' };
+            
+            return null;
+        }
+
+        async function carregarContatos() {
+            if (!verificarConfiguracao()) return;
+            const contactsArea = document.getElementById('contacts-area');
+            try {
+                const res = await fetch(`${API_URL}/chat/findChats/${INSTANCE}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': API_KEY },
+                    body: JSON.stringify({}) 
+                });
+                
+                const data = await res.json();
+                CHATS_DATA = data.records || data || [];
+                renderizarContatos();
+            } catch (e) {
+                contactsArea.innerHTML = '<p class="text-red-500 text-center mt-5">Erro ao sincronizar.</p>';
+            }
+        }
+
+        function alternarAba(arquivados) {
+            ABA_ARQUIVADOS = arquivados;
+            const tabAtivos = document.getElementById('tab-ativos');
+            const tabArquivados = document.getElementById('tab-arquivados');
+
+            if (arquivados) {
+                tabArquivados.className = "flex-1 py-3 text-sm font-semibold text-emerald-600 border-b-2 border-emerald-600 transition";
+                tabAtivos.className = "flex-1 py-3 text-sm font-semibold text-gray-500 border-b-2 border-transparent hover:text-gray-700 transition";
+            } else {
+                tabAtivos.className = "flex-1 py-3 text-sm font-semibold text-emerald-600 border-b-2 border-emerald-600 transition";
+                tabArquivados.className = "flex-1 py-3 text-sm font-semibold text-gray-500 border-b-2 border-transparent hover:text-gray-700 transition";
+            }
+            renderizarContatos();
+        }
+
+        function filtrarContatos() {
+            renderizarContatos();
+        }
+
+        function renderizarContatos() {
+            const contactsArea = document.getElementById('contacts-area');
+            const termoPesquisa = document.getElementById('search-input').value.toLowerCase();
+            contactsArea.innerHTML = '';
+
+            const filtrados = CHATS_DATA.filter(chat => {
+                const jid = chat.remoteJid || '';
+                if (jid.includes('@g.us')) return false; 
+
+                const archivedRaw = chat.archive ?? chat.archived ?? chat.isArchived ?? false;
+                const isArchived = archivedRaw === true || archivedRaw === 1 || archivedRaw === '1' || String(archivedRaw).toLowerCase() === 'true';
+                if (isArchived !== ABA_ARQUIVADOS) return false;
+
+                const name = (chat.pushName || chat.name || '').toLowerCase();
+                const num = jid.split('@')[0];
+                return name.includes(termoPesquisa) || num.includes(termoPesquisa);
+            });
+
+            if (filtrados.length === 0) {
+                contactsArea.innerHTML = '<p class="text-center text-gray-500 mt-5">Nenhuma conversa encontrada.</p>';
+                return;
+            }
+
+            filtrados.forEach(chat => {
+                const name = chat.pushName || chat.name || chat.remoteJid.split('@')[0];
+                const jid = chat.remoteJid;
+
+                const div = document.createElement('div');
+                div.className = "flex items-center px-3 py-3 border-b border-gray-100 hover:bg-[#f5f6f6] cursor-pointer transition";
+                div.onclick = () => abrirConversa(jid, name);
+                div.innerHTML = `
+                    <div class="w-12 h-12 bg-gray-200 rounded-full flex-shrink-0 flex items-center justify-center text-xl mr-3">👤</div>
+                    <div class="flex-1 min-w-0 border-b-0 pb-1">
+                        <div class="flex justify-between items-baseline mb-0.5">
+                            <h3 class="text-base text-gray-900 truncate">${name}</h3>
+                        </div>
+                        <p class="text-sm text-gray-500 truncate">${jid.endsWith('@lid') ? 'LID ' + jid.split('@')[0] : jid.split('@')[0]}</p>
+                    </div>
+                `;
+                contactsArea.appendChild(div);
+            });
+        }
+
+        function abrirConversa(jid, name) {
+            CURRENT_JID = jid;
+            CURRENT_NAME = name;
+            quantidadeMensagensAnterior = 0; // Zera a contagem para o novo chat
+            
+            document.getElementById('chat-header-name').innerText = name;
+            document.getElementById('chat-header-number').innerText = jid.endsWith('@lid') ? 'LID ' + jid.split('@')[0] : jid.split('@')[0];
+            document.getElementById('welcome-screen').classList.add('hidden');
+            document.getElementById('right-panel').classList.remove('hidden'); 
+            
+            // Faz a primeira carga visual com texto "Carregando"
+            carregarMensagens(false);
+
+            // ==========================================
+            // O SEGREDO DO "TEMPO REAL"
+            // Cria um loop que atualiza as mensagens a cada 3 segundos
+            // ==========================================
+            if(chatInterval) clearInterval(chatInterval);
+            chatInterval = setInterval(() => {
+                carregarMensagens(true); // "true" significa carregar silenciosamente sem piscar a tela
+                carregarContatos(); // Atualiza a lista da esquerda silenciosamente também
+            }, POLLING_MS);
+        }
+
+        async function carregarMensagens(silencioso = false) {
+            if (!CURRENT_JID || !verificarConfiguracao()) return;
+            const jidAtual = CURRENT_JID;
+            
+            const chatArea = document.getElementById('chat-area');
+            if (!silencioso) {
+                chatArea.innerHTML = '<div class="flex justify-center p-4"><span class="bg-white px-3 py-1 rounded-full text-xs text-gray-500 shadow-sm">Carregando histórico...</span></div>';
+            }
+            
+            try {
+                const res = await fetch(`${API_URL}/chat/findMessages/${INSTANCE}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': API_KEY },
+                    body: JSON.stringify({ where: { remoteJid: jidAtual } })
+                });
+                
+                if (CURRENT_JID !== jidAtual) return;
+
+                const data = await res.json();
+                let msgs = Array.isArray(data) ? data : (data.records || data.messages?.records || data.data || []);
+                
+                msgs = msgs.filter(msg => {
+                    const msgJid = msg.remoteJid || msg.key?.remoteJid;
+                    return msgJid === jidAtual;
+                });
+
+                // Se o número de mensagens for igual ao anterior, não reconstrói a tela (evita pular o scroll)
+                if (silencioso && msgs.length === quantidadeMensagensAnterior) {
+                    return; 
+                }
+                quantidadeMensagensAnterior = msgs.length;
+
+                chatArea.innerHTML = ''; 
+
+                if (msgs.length === 0) {
+                    chatArea.innerHTML = '<div class="flex justify-center p-4"><span class="bg-white px-3 py-1 rounded-full text-xs text-gray-500 shadow-sm">Nenhuma mensagem.</span></div>';
+                    return;
+                }
+
+                msgs = msgs.sort((a, b) => a.messageTimestamp - b.messageTimestamp);
+
+                msgs.forEach(msg => {
+                    const isMe = msg.fromMe;
+                    const texto = extrairTexto(msg);
+                    const midia = extrairMidia(msg);
+                    let htmlConteudo = '';
+
+                    if (midia) {
+                        const fileName = midia.dados.fileName || `Arquivo_${midia.tipo}`;
+                        const mimeType = midia.dados.mimetype || '';
+                        const msgEncoded = encodeURIComponent(JSON.stringify(msg));
+                        
+                        htmlConteudo += `
+                            <button onclick="baixarArquivo('${msgEncoded}', '${fileName}', '${mimeType}', this)" 
+                                class="flex items-center gap-2 bg-black bg-opacity-5 hover:bg-opacity-10 p-2 rounded-md mb-1 w-full text-left transition border border-black border-opacity-5">
+                                <span class="text-2xl">${midia.icone}</span>
+                                <div class="flex flex-col overflow-hidden">
+                                    <span class="text-[13px] font-semibold truncate text-gray-700">${fileName}</span>
+                                    <span class="text-[10px] text-gray-500 uppercase">${midia.tipo}</span>
+                                </div>
+                            </button>
+                        `;
+                    }
+
+                    if (texto) {
+                        htmlConteudo += `<p class="text-[14.5px] text-gray-800 break-words leading-snug">${texto}</p>`;
+                    }
+
+                    if (!texto && !midia && msg.messageType) {
+                        htmlConteudo += `<p class="text-[13px] text-gray-500 italic flex items-center gap-1"><i>⚠️ Mídia ou mensagem especial (${msg.messageType})</i></p>`;
+                    }
+
+                    const div = document.createElement('div');
+                    div.className = `flex w-full mb-1 ${isMe ? 'justify-end' : 'justify-start'}`;
+                    const roundedClasses = isMe ? 'rounded-l-lg rounded-br-lg rounded-tr-sm' : 'rounded-r-lg rounded-bl-lg rounded-tl-sm';
+                    const colorClass = isMe ? 'bubble-me' : 'bubble-other';
+
+                    div.innerHTML = `
+                        <div class="relative max-w-[85%] md:max-w-[75%] px-2 py-1.5 shadow-sm ${roundedClasses} ${colorClass}">
+                            ${htmlConteudo}
+                            <div class="text-[10px] text-gray-400 text-right mt-1 ml-4 select-none">
+                                ${new Date(msg.messageTimestamp * 1000).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                ${isMe ? '<span class="text-blue-500 ml-0.5">✓✓</span>' : ''}
+                            </div>
+                        </div>
+                    `;
+                    chatArea.appendChild(div);
+                });
+                chatArea.scrollTop = chatArea.scrollHeight; 
+            } catch (e) {
+                if(!silencioso) chatArea.innerHTML = '<div class="flex justify-center p-4"><span class="bg-white px-3 py-1 rounded-full text-xs text-red-500 shadow-sm">Erro de conexão.</span></div>';
+            }
+        }
+
+        async function baixarArquivo(msgStringEncoded, fileName, mimeType, btnElement) {
+            const textoOriginal = btnElement.innerHTML;
+            btnElement.innerHTML = '<span class="animate-spin text-xl">⏳</span> <span class="text-sm font-semibold">Baixando arquivo...</span>';
+            btnElement.disabled = true;
+
+            try {
+                const messageObj = JSON.parse(decodeURIComponent(msgStringEncoded));
+                const res = await fetch(`${API_URL}/chat/getBase64FromMediaMessage/${INSTANCE}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'apikey': API_KEY },
+                    body: JSON.stringify({ message: messageObj }) 
+                });
+                
+                const data = await res.json();
+                
+                if (data.base64) {
+                    const link = document.createElement('a');
+                    link.href = `data:${mimeType};base64,${data.base64}`;
+                    link.download = fileName;
+                    link.click();
+                } else {
+                    alert('A API não conseguiu decodificar a mídia.');
+                }
+            } catch (e) {
+                alert('Falha na comunicação com a Evolution API.');
+            } finally {
+                btnElement.innerHTML = textoOriginal;
+                btnElement.disabled = false;
+            }
+        }
+
+        const fileInput = document.getElementById('file-input');
+        const fileNameDisplay = document.getElementById('file-name');
+        
+        fileInput.addEventListener('change', (e) => {
+            if(e.target.files[0]) {
+                fileNameDisplay.innerText = e.target.files[0].name;
+                fileNameDisplay.classList.remove('hidden');
+            }
+        });
+
+        document.getElementById('chat-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!CURRENT_JID) return;
+
+            const textInput = document.getElementById('text-input');
+            const file = fileInput.files[0];
+            const text = textInput.value;
+            const btn = document.getElementById('send-btn');
+
+            if (!text.trim() && !file) return;
+
+            btn.disabled = true;
+            textInput.disabled = true;
+
+            const numeroLimpo = CURRENT_JID.split('@')[0];
+
+            try {
+                if (file) {
+                    const reader = new FileReader();
+                    reader.readAsDataURL(file);
+                    reader.onload = async () => {
+                        const base64 = reader.result.split(',')[1];
+                        await fetch(`${API_URL}/message/sendMedia/${INSTANCE}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'apikey': API_KEY },
+                            body: JSON.stringify({
+                                number: numeroLimpo,
+                                mediatype: file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : file.type.startsWith('audio/') ? 'audio' : 'document',
+                                mimetype: file.type,
+                                caption: text,
+                                media: base64,
+                                fileName: file.name
+                            })
+                        });
+                        fileInput.value = '';
+                        fileNameDisplay.classList.add('hidden');
+                        carregarMensagens(true); 
+                    };
+                } else {
+                    await fetch(`${API_URL}/message/sendText/${INSTANCE}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'apikey': API_KEY },
+                        body: JSON.stringify({ 
+                            number: numeroLimpo, 
+                            textMessage: { text: text }
+                        })
+                    });
+                }
+                textInput.value = '';
+                carregarMensagens(true); 
+            } catch (error) {
+                alert("Erro ao enviar mensagem.");
+            } finally {
+                btn.disabled = false;
+                textInput.disabled = false;
+                textInput.focus();
+            }
+        });
+
+        window.onload = () => {
+            if (verificarConfiguracao()) carregarContatos();
+        };
+    </script>
 </body>
 </html>
