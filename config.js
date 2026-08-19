@@ -1,8 +1,8 @@
 window.__APP_CONFIG__ = {
-  baseUrl: "${EVOLUTION_API_URL}",
-  apiKey: "${EVOLUTION_API_KEY}",
-  instance: "${EVOLUTION_INSTANCE}",
-  pollingMs: Number("${POLLING_MS}") || 4000,
-  chatsTake: Number("${CHATS_TAKE}") || 500,
-  messagesTake: Number("${MESSAGES_TAKE}") || 500
+  baseUrl: "https://loja-evolution-api.velmc0.easypanel.host",
+  apiKey: "429683C4C977415CAAFCCE10F7D57E11",
+  instance: "mega-xerox",
+  pollingMs: Number("3000") || 4000,
+  chatsTake: Number("500") || 500,
+  messagesTake: Number("500") || 500
 };
